@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Jogo de Aniversário 🏹</title>
+
+<style>
+
+body{
+margin:0;
+overflow:hidden;
+background: radial-gradient(circle,#020617,#000814);
+font-family: Arial;
+display:flex;
+flex-direction:column;
+height:100vh;
+color:white;
+}
+
+#game{
+flex:1;
+display:block;
+}
+
+#ui{
+height:120px;
+text-align:center;
+display:flex;
+flex-direction:column;
+justify-content:center;
+gap:5px;
+}
+
+#msg{
+font-size:22px;
+opacity:0;
+transition:1s;
+text-shadow:0 0 10px white;
+}
+
+#timer{
+font-size:20px;
+opacity:0;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+<div id="msg"></div>
+<div id="timer"></div>
+</div>
+
+<script>
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+function resize(){
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight-120;
+}
+resize();
+window.addEventListener("resize",resize);
+
+let bow={x:160,y:canvas.height/2};
+let mouse={x:0,y:0};
+let dragging=false;
+let arrow=null;
+let gravity=0.2;
+
+let level=1;
+
+let target={
+x:canvas.width-140,
+y:canvas.height/2,
+r:40,
+dir:1,
+speed:2
+};
+
+let particles=[];
+
+const pullSound=new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+const releaseSound=new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+
+canvas.addEventListener("mousedown",start);
+canvas.addEventListener("touchstart",start);
+
+canvas.addEventListener("mousemove",move);
+canvas.addEventListener("touchmove",move);
+
+canvas.addEventListener("mouseup",release);
+canvas.addEventListener("touchend",release);
+
+function pos(e){
+if(e.touches){
+return {x:e.touches[0].clientX,y:e.touches[0].clientY};
+}
+return {x:e.clientX,y:e.clientY};
+}
+
+function start(e){
+dragging=true;
+let p=pos(e);
+mouse.x=p.x;
+mouse.y=p.y;
+pullSound.currentTime=0;
+pullSound.play();
+}
+
+function move(e){
+if(!dragging) return;
+let p=pos(e);
+mouse.x=p.x;
+mouse.y=p.y;
+}
+
+function release(){
+
+if(dragging){
+
+let dx=bow.x-mouse.x;
+let dy=bow.y-mouse.y;
+
+arrow={
+x:bow.x,
+y:bow.y,
+vx:dx*0.17,
+vy:dy*0.17
+};
+
+releaseSound.currentTime=0;
+releaseSound.play();
+
+}
+
+dragging=false;
+
+}
+
+function drawBow(){
+
+let top=bow.y-70;
+let bottom=bow.y+70;
+
+ctx.lineWidth=8;
+
+let g=ctx.createLinearGradient(bow.x,top,bow.x,bottom);
+
+g.addColorStop(0,"#9a6b2f");
+g.addColorStop(1,"#4a2d10");
+
+ctx.strokeStyle=g;
+
+ctx.beginPath();
+ctx.arc(bow.x,bow.y,70,Math.PI/2,-Math.PI/2,true);
+ctx.stroke();
+
+ctx.strokeStyle="white";
+ctx.lineWidth=3;
+
+if(dragging){
+
+ctx.beginPath();
+ctx.moveTo(bow.x,top);
+ctx.lineTo(mouse.x,mouse.y);
+ctx.lineTo(bow.x,bottom);
+ctx.stroke();
+
+ctx.beginPath();
+ctx.moveTo(bow.x,bow.y);
+ctx.lineTo(mouse.x,mouse.y);
+ctx.strokeStyle="cyan";
+ctx.stroke();
+
+}else{
+
+ctx.beginPath();
+ctx.moveTo(bow.x,top);
+ctx.lineTo(bow.x,bottom);
+ctx.stroke();
+
+}
+
+}
+
+function drawArrow(){
+
+if(!arrow) return;
+
+let ang=Math.atan2(arrow.vy,arrow.vx);
+
+ctx.save();
+
+ctx.translate(arrow.x,arrow.y);
+ctx.rotate(ang);
+
+ctx.strokeStyle="white";
+ctx.lineWidth=4;
+
+ctx.beginPath();
+ctx.moveTo(-35,0);
+ctx.lineTo(0,0);
+ctx.stroke();
+
+ctx.beginPath();
+ctx.moveTo(0,0);
+ctx.lineTo(-8,-5);
+ctx.lineTo(-8,5);
+ctx.fillStyle="white";
+ctx.fill();
+
+ctx.restore();
+
+}
+
+function drawTarget(){
+
+ctx.beginPath();
+ctx.arc(target.x,target.y,target.r,0,Math.PI*2);
+ctx.fillStyle="red";
+ctx.fill();
+
+ctx.beginPath();
+ctx.arc(target.x,target.y,25,0,Math.PI*2);
+ctx.fillStyle="white";
+ctx.fill();
+
+ctx.beginPath();
+ctx.arc(target.x,target.y,10,0,Math.PI*2);
+ctx.fillStyle="red";
+ctx.fill();
+
+}
+
+function moveTarget(){
+
+target.y+=target.speed*target.dir;
+
+if(target.y>canvas.height-80 || target.y<80){
+target.dir*=-1;
+}
+
+}
+
+function particlesBoom(){
+
+for(let i=0;i<150;i++){
+
+particles.push({
+x:target.x,
+y:target.y,
+vx:(Math.random()-0.5)*10,
+vy:(Math.random()-0.5)*10,
+life:120,
+size:Math.random()*7
+});
+
+}
+
+}
+
+function drawParticles(){
+
+particles.forEach(p=>{
+
+ctx.fillStyle=`hsl(${Math.random()*360},100%,60%)`;
+
+ctx.fillRect(p.x,p.y,p.size,p.size);
+
+p.x+=p.vx;
+p.y+=p.vy;
+p.life--;
+
+});
+
+particles=particles.filter(p=>p.life>0);
+
+}
+
+function showText(t){
+
+let m=document.getElementById("msg");
+
+m.innerHTML=t;
+m.style.opacity=1;
+
+}
+
+function startCountdown(){
+
+let timer=document.getElementById("timer");
+
+timer.style.opacity=1;
+
+let targetDate=new Date("2027-03-31T00:00:00");
+
+setInterval(()=>{
+
+let now=new Date();
+
+let diff=targetDate-now;
+
+let d=Math.floor(diff/1000/60/60/24);
+let h=Math.floor(diff/1000/60/60)%24;
+let m=Math.floor(diff/1000/60)%60;
+let s=Math.floor(diff/1000)%60;
+
+timer.innerHTML=
+"contagem para 31/03 ⏳ "+
+d+"d "+h+"h "+m+"m "+s+"s";
+
+},1000);
+
+}
+
+function update(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+drawBow();
+drawTarget();
+drawArrow();
+drawParticles();
+
+moveTarget();
+
+if(arrow){
+
+arrow.x+=arrow.vx;
+arrow.y+=arrow.vy;
+arrow.vy+=gravity;
+
+let dx=arrow.x-target.x;
+let dy=arrow.y-target.y;
+
+if(Math.sqrt(dx*dx+dy*dy)<target.r){
+
+arrow=null;
+particlesBoom();
+
+if(level==1){
+
+showText("18 anos🎂 parabéns!!!! Feliz aniversário Ulmannnn 🎉");
+
+level=2;
+
+target.speed=4;
+
+setTimeout(()=>{
+showText("nível 2 ⚡ alvo mais rápido!");
+},2000);
+
+}else{
+
+showText("estou orgulhosa pela pessoa que você é, parabéns pelo seu grande dia 💫");
+
+startCountdown();
+
+}
+
+}
+
+}
+
+requestAnimationFrame(update);
+
+}
+
+update();
+
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/addons/p5.sound.min.js"></script>
+    
+    
+    
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="utf-8" />
+
+  </head>
+  <body>
+    <main>
+    </main>
+    <script src="sketch.js"></script>
+  </body>
+</html>
